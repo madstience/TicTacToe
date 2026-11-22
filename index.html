@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tic Tac Toe | Two Players</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, -apple-system, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: #171923; color: #f6f3f6; display: grid; place-items: center; padding: 20px; }
+    main { width: min(100%, 390px); text-align: center; }
+    h1 { color: #f3a9cc; letter-spacing: .08em; margin-bottom: 8px; }
+    #identity { color: #aeb8cd; margin-bottom: 6px; }
+    #status { font-size: 1.15rem; min-height: 3rem; margin: 14px 0; }
+    #board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px auto 24px; width: min(100%, 330px); }
+    .cell { aspect-ratio: 1; background: #303445; border: 0; border-radius: 14px; color: #eee; font-size: clamp(2.2rem, 10vw, 4rem); font-weight: 800; cursor: pointer; }
+    .cell:disabled { cursor: default; opacity: 1; }
+    .cell.x { color: #f3a9cc; }
+    .cell.o { color: #8ccfff; }
+    button.action { padding: 12px 16px; margin: 5px; background: #f3a9cc; color: #171923; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
+    button.action:disabled { opacity: .5; cursor: default; }
+    #room { overflow-wrap: anywhere; color: #aeb8cd; font-size: .84rem; margin-top: 16px; }
+    #error { color: #ffaaaa; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>TIC TAC TOE</h1>
+    <div id="identity">Connecting...</div>
+    <div id="status">Loading game...</div>
+    <div id="board" aria-label="Tic-tac-toe board"></div>
+    <button class="action" id="copy" type="button">Copy invite link</button>
+    <button class="action" id="rematch" type="button" disabled>Play again</button>
+    <button class="action" id="new" type="button">New room</button>
+    <div id="room"></div>
+    <p id="error" role="alert"></p>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js';
+    import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js';
+    import { getDatabase, ref, onValue, runTransaction } from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-database.js';
+
+    // REPLACE with the config provided by Firebase > Project settings > Your apps.
+    // Include the databaseURL copied from Firebase > Realtime Database.
+    const firebaseConfig = {
+      apiKey: 'PASTE_API_KEY',
+      authDomain: 'PASTE_PROJECT_ID.firebaseapp.com',
+      databaseURL: 'https://PASTE_DATABASE_URL',
+      projectId: 'PASTE_PROJECT_ID',
+      appId: 'PASTE_APP_ID'
+    };
+
+    const $ = id => document.getElementById(id);
+    const boardEl = $('board');
+    const cells = [];
+    let uid = null;
+    let roomId = null;
+    let gameRef = null;
+    let game = null;
+    let role = null;
+    let busy = false;
+
+    const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    function outcome(board) {
+      for (const [a,b,c] of wins) {
+        if (board[a] !== '.' && board[a] === board[b] && board[a] === board[c]) return board[a];
+      }
+      return board.includes('.') ? '' : 'Draw';
+    }
+    function showError(err) {
+      $('error').textContent = err?.message || String(err);
+    }
+    function render() {
+      role = game?.x === uid ? 'X' : game?.o === uid ? 'O' : null;
+      $('identity').textContent = role ? `You are Player ${role}` : 'Room full: spectator';
+      if (!game) {
+        $('status').textContent = 'Loading...';
+      } else if (game.winner) {
+        $('status').textContent = game.winner === 'Draw'
+          ? 'Draw!' : (game.winner === role ? 'You won!' : `Player ${game.winner} wins!`);
+      } else if (!game.o) {
+        $('status').textContent = 'Waiting for your friend to join...';
+      } else {
+        $('status').textContent = game.turn === role ? 'Your turn!' : `Player ${game.turn}'s turn`;
+      }
+      const board = game?.board || '.........';
+      cells.forEach((cell, i) => {
+        cell.textContent = board[i] === '.' ? '' : board[i];
+        cell.className = 'cell ' + (board[i] === '.' ? '' : board[i].toLowerCase());
+        cell.disabled = busy || !game || !game.o || !!game.winner || game.turn !== role || board[i] !== '.';
+      });
+      $('rematch').disabled = busy || !game?.winner || !role;
+    }
+    for (let i = 0; i < 9; i++) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'cell'; b.setAttribute('aria-label', `Square ${i+1}`);
+      b.addEventListener('click', () => makeMove(i));
+      boardEl.appendChild(b);
+      cells.push(b);
+    }
+    async function makeMove(i) {
+      if (busy || !role || !game || game.winner || game.turn !== role || !game.o || game.board[i] !== '.') return;
+      busy = true; render();
+      try {
+        await runTransaction(gameRef, current => {
+          if (!current || current.winner || !current.o || current.turn !== role ||
+              current[role.toLowerCase()] !== uid || current.board[i] !== '.') return;
+          const board = current.board.substring(0, i) + role + current.board.substring(i+1);
+          return {...current, board, winner: outcome(board), turn: role === 'X' ? 'O' : 'X'};
+        }, {applyLocally: false});
+      } catch (err) { showError(err); }
+      finally { busy = false; render(); }
+    }
+    async function joinRoom() {
+      const url = new URL(window.location.href);
+      let requested = url.searchParams.get('room');
+      if (!requested || !/^[a-z0-9-]{8,80}$/i.test(requested)) {
+        requested = crypto.randomUUID();
+        url.searchParams.set('room', requested);
+        history.replaceState(null, '', url);
+      }
+      roomId = requested;
+      gameRef = ref(getDatabase(app), 'rooms/' + roomId);
+      $('room').textContent = 'Room: ' + roomId;
+      const result = await runTransaction(gameRef, current => {
+        if (!current) return { board: '.........', x: uid, o: '', turn: 'X', winner: '', round: 1 };
+        if (current.x === uid || current.o === uid) return; // already joined
+        if (!current.o) return {...current, o: uid};
+        return; // spectator; room full
+      }, {applyLocally: false});
+      // Everyone, including spectators and returning players, receives updates.
+      onValue(gameRef, snapshot => { game = snapshot.val(); render(); }, showError);
+    }
+    $('copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(location.href); $('copy').textContent = 'Copied!'; }
+      catch { window.prompt('Copy this invite link:', location.href); }
+    });
+    $('new').addEventListener('click', () => {
+      const url = new URL(location.href);
+      url.searchParams.delete('room');
+      location.href = url.toString();
+    });
+    $('rematch').addEventListener('click', async () => {
+      if (busy || !game?.winner || !role) return;
+      busy = true; render();
+      try {
+        await runTransaction(gameRef, current => {
+          if (!current?.winner || (current.x !== uid && current.o !== uid)) return;
+          return {...current, board: '.........', turn: 'X', winner: '', round: (current.round || 1) + 1};
+        }, {applyLocally: false});
+      } catch (err) { showError(err); }
+      finally { busy = false; render(); }
+    });
+
+    let app;
+    try {
+      app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      await signInAnonymously(auth);
+      uid = auth.currentUser.uid;
+      await joinRoom();
+    } catch (err) {
+      $('status').textContent = 'Could not connect to Firebase.';
+      showError(err);
+    }
+  </script>
+</body>
+</html>
