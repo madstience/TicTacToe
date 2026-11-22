@@ -1,31 +1,142 @@
 <!doctype html>
 <html lang="en">
 <head>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&family=Quicksand:wght@400;500;700&display=swap" rel="stylesheet">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Tic Tac Toe | Two Players</title>
-  <style>
-    :root { color-scheme: dark; font-family: system-ui, -apple-system, sans-serif; }
-    * { box-sizing: border-box; }
-    body { margin: 0; min-height: 100vh; background: #171923; color: #f6f3f6; display: grid; place-items: center; padding: 20px; }
-    main { width: min(100%, 390px); text-align: center; }
-    h1 { color: #f3a9cc; letter-spacing: .08em; margin-bottom: 8px; }
-    #identity { color: #aeb8cd; margin-bottom: 6px; }
-    #status { font-size: 1.15rem; min-height: 3rem; margin: 14px 0; }
-    #board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px auto 24px; width: min(100%, 330px); }
-    .cell { aspect-ratio: 1; background: #303445; border: 0; border-radius: 14px; color: #eee; font-size: clamp(2.2rem, 10vw, 4rem); font-weight: 800; cursor: pointer; }
-    .cell:disabled { cursor: default; opacity: 1; }
-    .cell.x { color: #f3a9cc; }
-    .cell.o { color: #8ccfff; }
-    button.action { padding: 12px 16px; margin: 5px; background: #f3a9cc; color: #171923; border: 0; border-radius: 10px; font-weight: 700; cursor: pointer; }
-    button.action:disabled { opacity: .5; cursor: default; }
-    #room { overflow-wrap: anywhere; color: #aeb8cd; font-size: .84rem; margin-top: 16px; }
-    #error { color: #ffaaaa; }
-  </style>
+ <style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'Quicksand', sans-serif;
+    background: linear-gradient(180deg, #fff7fb 0%, #f9f0ff 45%, #eef7ff 100%);
+    color: #fffafc;
+    text-align: center;
+    padding: 30px 15px;
+  }
+
+  h1 {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 3rem;
+    margin-bottom: 10px;
+    color: #ff8fb1;
+    letter-spacing: 1px;
+  }
+
+  #status, #player, #link {
+    font-size: 1.1rem;
+    margin: 10px 0;
+    color: #7c6f91;
+  }
+
+  #link {
+    max-width: 700px;
+    margin: 15px auto;
+    word-break: break-word;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 110px);
+    gap: 14px;
+    justify-content: center;
+    margin: 30px auto;
+    padding: 18px;
+    background: rgba(255,255,255,0.65);
+    border: 2px solid #f6d8e6;
+    border-radius: 28px;
+    width: fit-content;
+    box-shadow: 0 8px 24px rgba(215, 188, 220, 0.25);
+    backdrop-filter: blur(6px);
+  }
+
+  .cell {
+    width: 110px;
+    height: 110px;
+    border: none;
+    border-radius: 24px;
+    background: #fffafc;
+    box-shadow: 0 4px 10px rgba(212, 183, 201, 0.25);
+    font-family: 'Fredoka', sans-serif;
+    font-size: 3rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+  }
+
+  .cell:hover:enabled {
+    transform: translateY(-2px);
+    background: #fff1f7;
+    box-shadow: 0 8px 16px rgba(212, 183, 201, 0.35);
+  }
+
+  .cell:disabled {
+    cursor: default;
+    opacity: 1;
+  }
+
+  .cell.x {
+    color: #ff8fb1;
+  }
+
+  .cell.o {
+    color: #8ebfff;
+  }
+
+  button {
+    font-family: 'Fredoka', sans-serif;
+    font-size: 1rem;
+    border: none;
+    border-radius: 999px;
+    padding: 12px 22px;
+    margin: 8px;
+    cursor: pointer;
+    background: #ffd6e7;
+    color: #7b5f74;
+    box-shadow: 0 4px 10px rgba(212, 183, 201, 0.25);
+    transition: transform 0.15s ease, background 0.15s ease;
+  }
+
+  button:hover {
+    transform: translateY(-1px);
+    background: #ffc9df;
+  }
+
+  #copy {
+    background: #ffd9ec;
+  }
+
+  #rematch {
+    display: none;
+    background: #dff2ff;
+    color: #62758e;
+  }
+
+  #newRoom {
+    background: #e8dcff;
+    color: #6f6490;
+  }
+
+  .card {
+    background: rgba(255,255,255,0.65);
+    border-radius: 24px;
+    padding: 18px;
+    max-width: 760px;
+    margin: 0 auto 20px auto;
+    border: 2px solid #f5deea;
+    box-shadow: 0 8px 24px rgba(215, 188, 220, 0.18);
+  }
+</style>
 </head>
 <body>
   <main>
-    <h1>TIC TAC TOE</h1>
+    <h1>tic tac toe</h1>
     <div id="identity">Connecting...</div>
     <div id="status">Loading game...</div>
     <div id="board" aria-label="Tic-tac-toe board"></div>
